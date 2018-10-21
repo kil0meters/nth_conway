@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
-#include <errno.h>
-
+#include <time.h>
 // #include <png.h>
 
-void print_help(void) { 
+static void print_help(void) { 
     fprintf(stderr,
             "nth_conway (0.1)\n"
             "kilometers <kilo@meters.sh>\n\n"
@@ -19,7 +20,7 @@ void print_help(void) {
             "    size   -- The size of pixels on the game board\n");
 }
 
-long int get_int(const char *string, const char *name) {
+static long int get_int(const char *string, const char *name) {
     long int n = strtol(string, NULL, 10);
     if (n == 0) {
         print_help();
@@ -29,19 +30,57 @@ long int get_int(const char *string, const char *name) {
     return n;
 }
 
-int main(int argc, char *argv[]) {
-        if (argc != 5
-            || !strcmp(argv[1], "--help")
-            || !strcmp(argv[1], "-h")) {
-            print_help();
-            exit(0);
+static void print_game_board(
+    const bool *game_board,
+    const int height,
+    const int width
+) {
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            printf("%s", game_board[i * width + j] ? "█" : " ");
         }
+        printf("\n");
+    }
+}
 
-        int n      = get_int(argv[1], "n");
-        int width  = get_int(argv[2], "width");
-        int height = get_int(argv[3], "height");
-        int size   = get_int(argv[4], "size"); 
+static bool *game_board_new(
+    bool *game_board,
+    const int size
+) {
+    // generate large random number, then use bitwise operators
+    // to get a sigular random bit;
+    srand(time(NULL));
+    uint32_t r = rand();
+    for (int i = 0; i < size; i++) {
+        game_board[i] = (r & 0x00000001);
+        r = r >> 1;
+        if (r == 0) {
+            r = rand();
+        }
+    }
 
-        printf("%d %d %d %d\n", n, width, height, size);
-        return 0;
+    return game_board;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 5
+        || !strcmp(argv[1], "--help")
+        || !strcmp(argv[1], "-h")) {
+        print_help();
+        exit(0);
+    }
+
+    int n      = get_int(argv[1], "n");
+    int width  = get_int(argv[2], "width");
+    int height = get_int(argv[3], "height");
+    int size   = get_int(argv[4], "size"); 
+
+    bool game_board[height * width];
+
+    game_board_new(game_board, height * width);
+
+    print_game_board(game_board, height, width);
+
+    printf("%d %d %d %d\n", n, width, height, size);
+    return 0;
 }
