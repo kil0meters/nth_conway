@@ -37,7 +37,7 @@ static void print_game_board(
 ) {
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            printf("%s", game_board[i * width + j] ? "█" : " ");
+            printf("%s", game_board[i * width + j] ? "█" : "░");
         }
         printf("\n");
     }
@@ -62,15 +62,87 @@ static bool *game_board_new(
     return game_board;
 }
 
+// 1. Any live cell with fewer than two live neighbors dies, as if by underpopulation.
+// 2. Any live cell with two or three live neighbors lives on to the next generation.
+// 3. Any live cell with more than three live neighbors dies, as if by overpopulation.
+// 4. Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction.
+
+static void game_board_step(
+    bool *game_board,
+    const int height,
+    const int width
+) {
+    int neighbor_cells;
+    int cell_pos;
+    bool cell;
+
+    // create a new board since we can't edit the existing one
+    // while doing comparisons on it 
+    bool new_board[width * height];
+
+    for (int i = 0; i < width * height; i++) {
+        cell_pos = i;
+        cell = game_board[cell_pos];
+        neighbor_cells = 0;
+
+        if ((cell_pos + 1) % width != 0)                                          // east
+            neighbor_cells += game_board[cell_pos + 1];
+        
+        if (cell_pos % width != 0)                                                // west 
+            neighbor_cells += game_board[cell_pos - 1];
+        
+        if (cell_pos + width < width * height)                                    // south
+            neighbor_cells += game_board[cell_pos + width];
+        
+        if (cell_pos > width)                                                     // north
+           neighbor_cells += game_board[cell_pos - width];
+        
+        if ((cell_pos > width) && ((cell_pos + 1) % width != 0))                  // north east
+            neighbor_cells += game_board[cell_pos - width + 1];
+        
+        if ((cell_pos > width) && (cell_pos % width != 0))                        // north west
+            neighbor_cells += game_board[cell_pos - width - 1];
+        
+        if ((cell_pos + width < width * height) && ((cell_pos + 1) % width != 0)) // south east
+            neighbor_cells += game_board[cell_pos + width + 1];
+        
+        if ((cell_pos + width < width * height) && (cell_pos % width != 0))       // south west
+            neighbor_cells += game_board[cell_pos + width - 1];
+
+        /*printf("debug: %d,%d,%d\n", neighbor_cells,
+                                    cell_pos,
+                                    game_board[cell_pos]);
+        */
+        if (cell && (neighbor_cells < 2 || neighbor_cells > 3)) {
+            new_board[cell_pos] = false;
+        }
+        else if (cell && (neighbor_cells == 3 || neighbor_cells == 2)) {
+            new_board[cell_pos] = true;
+        }
+        else if (!cell && neighbor_cells == 3) {
+            new_board[cell_pos] = true;
+        }
+        else {
+            new_board[cell_pos] = false;
+        }
+    }
+    
+    // game_board = new_board;
+    for (int i = 0; i < height * width; i++) {
+        game_board[i] = new_board[i];
+    }
+}
+
 static void format_board_as_png(
     const bool *game_board,
     const int size,
     const int height,
-    const int width
+    const int width,
+    const char *filename
 ) {
-    FILE *fp = fopen("conway.png", "wb");
+    FILE *fp = fopen(filename, "wb");
     if (fp == NULL) {
-        fprintf(stderr, "error: Could not open \"conway.png\" for writing\n");
+        fprintf(stderr, "error: Could not open \"%s\" for writing\n", filename);
         exit(1);
     }
 
@@ -88,36 +160,28 @@ static void format_board_as_png(
 
     png_init_io(png_ptr, fp);
 
+    // int size_adjusted_width = width * size;
+    // int size_adjusted_height = height * size;
+
     // bit depth of 2 since it's a black and white image
     png_set_IHDR(png_ptr, info_ptr, width * size, height * size, 8,
                  PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE,
                  PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-
-    png_text title_text;
-    title_text.compression = PNG_TEXT_COMPRESSION_NONE;
-    title_text.key = "Title";
-    title_text.text = "title";
-    png_set_text(png_ptr, info_ptr, &title_text, 1);
-
     png_write_info(png_ptr, info_ptr);
 
     // 1 byte per pixel 
     png_bytep row = (png_bytep) malloc(1 * width * size * sizeof(png_byte));
 
+    int index = 0;
     for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width * size; j++) {
-            if (j % size == 0) {
-                bool cell = game_board[i * width + j];
-                png_byte pixel_color;
-                if (cell) {
-                    pixel_color = 255;
-                } else {
-                    pixel_color = 0;
-                }
-                for (int s = 1; s <= size; s++) {
-                    row[j + s] = pixel_color;
-                }
+        for (int j = 0; j < width * size; j += size) {
+            bool cell = game_board[index];
+            png_byte pixel_color;
+            pixel_color = cell ? 255 : 0;
+            for (int s = 0; s < size; s++) {
+                row[j + s] = pixel_color;
             }
+            index++;
         }
         for (int s = 0; s < size; s++) {
             png_write_row(png_ptr, row);
@@ -144,9 +208,14 @@ int main(int argc, char *argv[]) {
 
     game_board_new(game_board, height * width);
 
-    print_game_board(game_board, height, width);
+    for (int i = 0; i < n; i++) {
+        print_game_board(game_board, height, width);
+        game_board_step(game_board, height, width);
+        printf("\n");
+    } 
 
-    format_board_as_png(game_board, size, height, width);
+    // print_game_board(game_board, height, width);
+    format_board_as_png(game_board, size, height, width, "conway.png");
 
     printf("%d %d %d %d\n", n, width, height, size);
     return 0;
