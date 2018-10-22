@@ -177,7 +177,7 @@ static void format_board_as_png(
         for (int j = 0; j < width * size; j += size) {
             bool cell = game_board[index];
             png_byte pixel_color;
-            pixel_color = cell ? 255 : 0;
+            pixel_color = cell ? 0 : 255;
             for (int s = 0; s < size; s++) {
                 row[j + s] = pixel_color;
             }
@@ -189,6 +189,11 @@ static void format_board_as_png(
     }
 
     png_write_end(png_ptr, NULL);
+
+    if (fp != NULL) fclose(fp);
+    if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
+    if (png_ptr != NULL) png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+    if (row != NULL) free(row);
 }
 
 int main(int argc, char *argv[]) {
@@ -208,11 +213,15 @@ int main(int argc, char *argv[]) {
 
     game_board_new(game_board, height * width);
 
+    // char frame[64];
+
     for (int i = 0; i < n; i++) {
         print_game_board(game_board, height, width);
+        // sprintf(frame, "movie/conway%03d.png", i);
+        // format_board_as_png(game_board, size, height, width, frame);
         game_board_step(game_board, height, width);
         printf("\n");
-    } 
+    }
 
     // print_game_board(game_board, height, width);
     format_board_as_png(game_board, size, height, width, "conway.png");

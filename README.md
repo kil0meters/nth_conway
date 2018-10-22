@@ -1,5 +1,7 @@
 # (n)th conway
 
+![example image](conway.png)
+
 Create PNG files of a random game of
 [Conway's Game of Life](https://en.wikipedia.org/wiki/Conway's_Game_of_Life)
 after N iterations.
